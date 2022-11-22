@@ -1,6 +1,7 @@
 import pygame as py
 import random as rnd
 import sys
+import time
 
 py.init()
 screen_size = (1920, 1080)
@@ -76,13 +77,15 @@ class Rectangle:
 
         return False
 
+    def reveal(self):
+        display.blit(self.revealed_img, (self.rect.x, self.rect.y))
+
     def l_click(self):
         if not self.flag:
             if not self.revealed:
                 # we check if this rectangle is already revealed and then if it is a mine
                 if self.mine:
-                    # TODO: game over state here
-                    pass
+                    game_over()
                 else:
                     display.blit(self.revealed_img, (self.rect.x, self.rect.y))
                     self.revealed = True
@@ -95,9 +98,24 @@ def check_if_ne(iy, ix):
         print(n)
         if n not in visited:
             visited.append(n)
-            rectangles[n[0]][n[1]].l_click()
-            if rectangles[n[0]][n[1]].num == 0:
-                check_if_ne(n[0], n[1])
+            try:
+                rectangles[n[0]][n[1]].l_click()
+                if rectangles[n[0]][n[1]].num == 0:
+                    check_if_ne(n[0], n[1])
+            except IndexError:
+                pass
+
+
+def game_over():
+    global running
+    global rectangles
+    for yy in rectangles:
+        for xx in yy:
+            xx.reveal()
+
+    py.display.flip()
+    py.time.delay(2000)
+    running = False
 
 
 def init_display_rec(n_graph, x=63, y=36, rec_size=30):
@@ -153,36 +171,61 @@ def generate_neighbors():                                   # generates a dictio
 
 
 def generate_bombs():
-    global rectangles, difficulty
+    global rectangles, difficulty, total_bombs
 
     for iy, yy in enumerate(rectangles):
         for ix, xx in enumerate(yy):
-            if rnd.randint(0, difficulty * 2) == 1:
+            if rnd.randint(0, difficulty) == 1:
                 rectangles[iy][ix].mine = True
-            else:
-                pass
+                total_bombs += 1
 
 
 def give_numbers():
     global graph, rectangles
-    for iy, yy in enumerate(rectangles):
-        for ix, xx in enumerate(rectangles):
+    for iy in range(0, 36):
+        for ix in range(0, 63):
             for z in graph[(iy, ix)]:
-                if rectangles[z[0]][z[1]].mine:
-                    rectangles[iy][ix].num += 1
-            rectangles[iy][ix].revealed_img = images_io[rectangles[iy][ix].num]
+                try:
+                    if rectangles[z[0]][z[1]].mine:
+                        rectangles[iy][ix].num += 1
+                except IndexError:
+                    pass
+
+            if rectangles[iy][ix].mine:
+                rectangles[iy][ix].revealed_img = bomb_img
+            else:
+                rectangles[iy][ix].revealed_img = images_io[rectangles[iy][ix].num]
 
 
 def check_rec():
     global rectangles, graph, pos
-    for iy, yy in enumerate(rectangles):
-        for ix, xx in enumerate(yy):
-            if xx.click():
+    for iy in range(0, 36):
+        for ix in range(0, 63):
+            if rectangles[iy][ix].click():
                 if rectangles[iy][ix].num == 0:
                     check_if_ne(iy, ix)
 
 
-sys.setrecursionlimit(3000)
+def check_if_won():
+    global rectangles, total_bombs, start_time
+    for yy in rectangles:
+        for xx in yy:
+            if xx.mine and xx.flag:
+                total_bombs -= 1
+
+    if total_bombs == 0:
+        print("YOU WON!!!!!")
+        won_time = time.time()
+        total_time = won_time - start_time
+        
+        if total_time > 60:
+            total_time = total_time / 60
+
+        print(f"in: {total_time} s")
+
+
+sys.setrecursionlimit(5000)
+
 
 # images in list in order:
 images_io = [zero_img, one_img, two_img, three_img, four_img, five_img, six_img, seven_img, eight_img]
@@ -200,6 +243,8 @@ rectangles = init_display_rec(graph, 63, 36, 30)
 
 difficulty = 5          # the higher, the more bombs there are if 0 there are none
 
+total_bombs = 0
+
 # init the bombs
 
 generate_bombs()
@@ -207,6 +252,8 @@ generate_bombs()
 # init the number of bombs around the rectangle
 
 give_numbers()
+
+start_time = time.time()
 
 while running:
     visited = []
@@ -218,3 +265,4 @@ while running:
     for event in py.event.get():
         if event.type == py.QUIT:
             running = False
+end_time = time.time()
