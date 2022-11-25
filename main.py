@@ -5,6 +5,10 @@ import time
 
 py.init()
 screen_size = (1920, 1080)
+rec_size = 30
+rec_x = int(screen_size[0] / rec_size)
+rec_y = int(screen_size[1] / rec_size)
+print(rec_x, rec_y)
 
 # importing all the necessary images
 
@@ -41,6 +45,9 @@ class Rectangle:
     def init(self):
 
         display.blit(self.starting_img, (self.rect.x, self.rect.y))
+
+    def reset(self):
+        self.num = 0
 
     def click(self):
         global left_clicked, right_clicked, pos
@@ -81,9 +88,18 @@ class Rectangle:
         display.blit(self.revealed_img, (self.rect.x, self.rect.y))
 
     def l_click(self):
+        global first_click, rectangles
         if not self.flag:
             if not self.revealed:
                 # we check if this rectangle is already revealed and then if it is a mine
+                if self.mine and first_click:   # on first click we make the mine and surroundings disappear
+                    self.mine = False
+                if first_click:
+                    first_click = False
+                    reset_nums()
+                    for n in self.neighbors:
+                        rectangles[n[0]][n[1]].mine = False
+                    give_numbers()
                 if self.mine:
                     game_over()
                 else:
@@ -95,7 +111,6 @@ def check_if_ne(iy, ix):
     global rectangles, graph, visited
 
     for n in graph[iy, ix]:
-        print(n)
         if n not in visited:
             visited.append(n)
             try:
@@ -116,13 +131,15 @@ def game_over():
     py.display.flip()
     py.time.delay(2000)
     running = False
+    # TODO: MAKE AN GAME OVER SCREEN
 
 
-def init_display_rec(n_graph, x=63, y=36, rec_size=30):
+def init_display_rec(n_graph):
+    global rec_y, rec_x, rec_size
     t_rectangles = []
-    for yy in range(0, y):
+    for yy in range(0, rec_y):
         rectangles_x = []
-        for xx in range(0, x):
+        for xx in range(0, rec_x):
             neighbors = n_graph[(yy, xx)]
             rectangles_x.append(Rectangle(rec_size, neighbors, xx * 30, yy * 30))
             rectangles_x[xx].init()
@@ -132,40 +149,42 @@ def init_display_rec(n_graph, x=63, y=36, rec_size=30):
 
 
 def generate_neighbors():                                   # generates a dictionary which tells us what the neighbors
-    n_graph = {}                                              # of any given rectangle is and returns this dictionary
-    for y in range(0, 36):
-        for x in range(0, 64):
+    global rec_x, rec_y
+    n_graph = {}                                            # of any given rectangle is and returns this dictionary
+    for y in range(0, rec_y):
+        for x in range(0, rec_x):
 
-            if y == 0 or y == 35:
+            if y == 0 or y == rec_y:
                 if y == 0:
                     if x == 0:
                         n_graph.update({(y, x): [(y, x + 1), (y + 1, x), (y + 1, x + 1)]})
 
-                    elif x == 64:
+                    elif x == rec_x:
                         n_graph.update({(y, x): [(y + 1, x), (y, x - 1), (y + 1, x - 1)]})
 
                     else:
                         n_graph.update({(y, x): [(y + 1, x), (y, x + 1), (y, x - 1), (y + 1, x + 1), (y + 1, x - 1)]})
-                elif y == 35:
+                elif y == rec_y:
                     if x == 0:
                         n_graph.update({(y, x): [(y - 1, x), (y, x + 1), (y - 1, x + 1)]})
 
-                    elif x == 64:
+                    elif x == rec_x:
                         n_graph.update({(y, x): [(y - 1, x), (y, x - 1), (y - 1, x - 1)]})
 
                     else:
                         n_graph.update({(y, x): [(y - 1, x), (y, x + 1), (y, x - 1), (y - 1, x - 1), (y - 1, x + 1)]})
 
-            elif x == 0 or x == 64:
+            elif x == 0 or x == rec_x:
                 if x == 0:
                     n_graph.update({(y, x): [(y + 1, x), (y - 1, x), (y, x + 1), (y + 1, x + 1), (y + 1, x)]})
 
-                if x == 64:
-                    n_graph.update({(y, x): [(y + 1, x), (y - 1, x), (y, x - 1), (y + 1, x - 1), (y - 1, x + 1)]})
+                if x == rec_x:
+                    n_graph.update({(y, x): [(y + 1, x), (y - 1, x), (y, x - 1), (y + 1, x - 1),
+                                             (y - 1, x + 1)]})
 
             else:
                 n_graph.update({(y, x): [(y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1), (y + 1, x + 1), (y + 1, x - 1),
-                                (y - 1, x + 1), (y - 1, x - 1)]})
+                                         (y - 1, x + 1), (y - 1, x - 1)]})
 
     return n_graph
 
@@ -182,8 +201,8 @@ def generate_bombs():
 
 def give_numbers():
     global graph, rectangles
-    for iy in range(0, 36):
-        for ix in range(0, 63):
+    for iy in range(0, rec_y):
+        for ix in range(0, rec_x):
             for z in graph[(iy, ix)]:
                 try:
                     if rectangles[z[0]][z[1]].mine:
@@ -194,13 +213,21 @@ def give_numbers():
             if rectangles[iy][ix].mine:
                 rectangles[iy][ix].revealed_img = bomb_img
             else:
+                print(rectangles[iy][ix].num)
                 rectangles[iy][ix].revealed_img = images_io[rectangles[iy][ix].num]
+
+
+def reset_nums():
+    global graph, rectangles
+    for iy in range(0, rec_y):
+        for ix in range(0, rec_x):
+            rectangles[iy][ix].reset()
 
 
 def check_rec():
     global rectangles, graph, pos
-    for iy in range(0, 36):
-        for ix in range(0, 63):
+    for iy in range(0, rec_y):
+        for ix in range(0, rec_x):
             if rectangles[iy][ix].click():
                 if rectangles[iy][ix].num == 0:
                     check_if_ne(iy, ix)
@@ -217,7 +244,7 @@ def check_if_won():
         print("YOU WON!!!!!")
         won_time = time.time()
         total_time = won_time - start_time
-        
+
         if total_time > 60:
             total_time = total_time / 60
 
@@ -239,7 +266,7 @@ right_clicked = False
 graph = generate_neighbors()
 
 # initialize the rectangles in a pattern
-rectangles = init_display_rec(graph, 63, 36, 30)
+rectangles = init_display_rec(graph)
 
 difficulty = 5          # the higher, the more bombs there are if 0 there are none
 
@@ -254,6 +281,7 @@ generate_bombs()
 give_numbers()
 
 start_time = time.time()
+first_click = True
 
 while running:
     visited = []
@@ -265,4 +293,5 @@ while running:
     for event in py.event.get():
         if event.type == py.QUIT:
             running = False
+
 end_time = time.time()
