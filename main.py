@@ -5,10 +5,9 @@ import time
 
 py.init()
 screen_size = (1920, 1080)
-rec_size = 30
+rec_size = 120
 rec_x = int(screen_size[0] / rec_size)
 rec_y = int(screen_size[1] / rec_size)
-print(rec_x, rec_y)
 
 # importing all the necessary images
 
@@ -29,8 +28,8 @@ eight_img = py.image.load('images/8_img.png')
 class Rectangle:
 
     def __init__(self, size, neighbors, x, y):
-        self.starting_img = start_img
-        self.marked_img = marked_img
+        self.starting_img = py.transform.scale(start_img, (rec_size, rec_size))
+        self.marked_img = py.transform.scale(marked_img, (rec_size, rec_size))
         self.revealed_img = images_io[0]
         self.size = size
         self.x = x
@@ -141,7 +140,7 @@ def init_display_rec(n_graph):
         rectangles_x = []
         for xx in range(0, rec_x):
             neighbors = n_graph[(yy, xx)]
-            rectangles_x.append(Rectangle(rec_size, neighbors, xx * 30, yy * 30))
+            rectangles_x.append(Rectangle(rec_size, neighbors, xx * rec_size, yy * rec_size))
             rectangles_x[xx].init()
         t_rectangles.append(rectangles_x)
     py.display.flip()
@@ -176,7 +175,7 @@ def generate_neighbors():                                   # generates a dictio
 
             elif x == 0 or x == rec_x:
                 if x == 0:
-                    n_graph.update({(y, x): [(y + 1, x), (y - 1, x), (y, x + 1), (y + 1, x + 1), (y + 1, x)]})
+                    n_graph.update({(y, x): [(y + 1, x), (y - 1, x), (y, x + 1), (y + 1, x + 1), (y - 1, x + 1)]})
 
                 if x == rec_x:
                     n_graph.update({(y, x): [(y + 1, x), (y - 1, x), (y, x - 1), (y + 1, x - 1),
@@ -211,9 +210,8 @@ def give_numbers():
                     pass
 
             if rectangles[iy][ix].mine:
-                rectangles[iy][ix].revealed_img = bomb_img
+                rectangles[iy][ix].revealed_img = py.transform.scale(bomb_img, (rec_size, rec_size))
             else:
-                print(rectangles[iy][ix].num)
                 rectangles[iy][ix].revealed_img = images_io[rectangles[iy][ix].num]
 
 
@@ -234,7 +232,7 @@ def check_rec():
 
 
 def check_if_won():
-    global rectangles, total_bombs, start_time
+    global rectangles, total_bombs, start_time, running
     for yy in rectangles:
         for xx in yy:
             if xx.mine and xx.flag:
@@ -244,7 +242,6 @@ def check_if_won():
         print("YOU WON!!!!!")
         won_time = time.time()
         total_time = won_time - start_time
-
         if total_time > 60:
             total_time = total_time / 60
 
@@ -252,46 +249,58 @@ def check_if_won():
 
 
 sys.setrecursionlimit(5000)
+stop = True
+# TODO: MAKE AN STARTING SCREEN
 
+while stop:
+    # images in list in order:
+    images_io = [py.transform.scale(zero_img, (rec_size, rec_size)),
+                 py.transform.scale(one_img, (rec_size, rec_size)),
+                 py.transform.scale(two_img, (rec_size, rec_size)),
+                 py.transform.scale(three_img, (rec_size, rec_size)),
+                 py.transform.scale(four_img, (rec_size, rec_size)),
+                 py.transform.scale(five_img, (rec_size, rec_size)),
+                 py.transform.scale(six_img, (rec_size, rec_size)),
+                 py.transform.scale(seven_img, (rec_size, rec_size)),
+                 py.transform.scale(eight_img, (rec_size, rec_size))]
 
-# images in list in order:
-images_io = [zero_img, one_img, two_img, three_img, four_img, five_img, six_img, seven_img, eight_img]
+    display = py.display.set_mode(screen_size, py.FULLSCREEN)
+    running = True
+    left_clicked = False
+    right_clicked = False
+    # generate the dictionary for the neighbors
 
-display = py.display.set_mode(screen_size, py.FULLSCREEN)
-running = True
-left_clicked = False
-right_clicked = False
-# generate the dictionary for the neighbors
+    graph = generate_neighbors()
 
-graph = generate_neighbors()
+    # initialize the rectangles in a pattern
+    rectangles = init_display_rec(graph)
 
-# initialize the rectangles in a pattern
-rectangles = init_display_rec(graph)
+    difficulty = 5          # the higher, the more bombs there are if 0 there are none
 
-difficulty = 5          # the higher, the more bombs there are if 0 there are none
+    total_bombs = 0
 
-total_bombs = 0
+    # init the bombs
 
-# init the bombs
+    generate_bombs()
 
-generate_bombs()
+    # init the number of bombs around the rectangle
 
-# init the number of bombs around the rectangle
+    give_numbers()
 
-give_numbers()
+    start_time = time.time()
+    first_click = True
 
-start_time = time.time()
-first_click = True
+    while running:
+        visited = []
+        # we get the position of the mouse.
+        pos = py.mouse.get_pos()
+        check_rec()
+        py.display.flip()
+        check_if_won()
 
-while running:
-    visited = []
-    # we get the position of the mouse.
-    pos = py.mouse.get_pos()
-    check_rec()
-    py.display.flip()
+        for event in py.event.get():
+            if event.type == py.QUIT:
+                running = False
+                stop = False
 
-    for event in py.event.get():
-        if event.type == py.QUIT:
-            running = False
-
-end_time = time.time()
+    end_time = time.time()
